@@ -1,0 +1,14 @@
+syntax = "proto3";
+package pcmd;
+
+enum EProtoCommand
+{
+	EProtoCommandBegin = 0;
+	EProtoCommandTest = 1; // 测试协议
+}
+
+message ProtoCommandTest
+{
+	uint32 id = 1;
+	string data = 2;
+}
