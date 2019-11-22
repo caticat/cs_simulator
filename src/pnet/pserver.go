@@ -10,7 +10,6 @@ type PServer struct {
 	listenPort uint32
 
 	listener    net.Listener
-	chaClose    chan bool // TODO:PAN 这个东西实际没有用,待修正
 	chaWaitRead chan *PMessageServer
 	mapClient   map[string]*PServerClient // 所有的客户端连接
 }
@@ -19,7 +18,6 @@ func NewPServer(ip string, port uint32) *PServer {
 	return &PServer{
 		listenIP:    ip,
 		listenPort:  port,
-		chaClose:    make(chan bool, 1),
 		chaWaitRead: make(chan *PMessageServer, kPServerWaitReadLen),
 		mapClient:   make(map[string]*PServerClient),
 	}
@@ -36,8 +34,6 @@ func (this *PServer) Start() error {
 }
 
 func (this *PServer) Close() {
-	this.chaClose <- true
-
 	for _, serverClient := range this.mapClient {
 		serverClient.Close()
 	}
