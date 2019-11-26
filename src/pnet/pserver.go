@@ -3,6 +3,7 @@ package pnet
 import (
 	"fmt"
 	"net"
+	"sync"
 )
 
 type PServer struct {
@@ -12,6 +13,8 @@ type PServer struct {
 	listener    net.Listener
 	chaWaitRead chan *PMessageServer
 	mapClient   map[string]*PServerClient // 所有的客户端连接
+	waiClient   *sync.WaitGroup
+	chaClose    chan bool
 }
 
 func NewPServer(ip string, port uint32) *PServer {
@@ -20,10 +23,12 @@ func NewPServer(ip string, port uint32) *PServer {
 		listenPort:  port,
 		chaWaitRead: make(chan *PMessageServer, kPServerWaitReadLen),
 		mapClient:   make(map[string]*PServerClient),
+		waiClient:   &sync.WaitGroup{},
 	}
 }
 
-func (this *PServer) Start() error {
+func (this *PServer) Start(chaClose chan bool) error {
+	this.chaClose = chaClose
 	if err := this.listen(); err != nil {
 		return err
 	}
@@ -34,17 +39,24 @@ func (this *PServer) Start() error {
 }
 
 func (this *PServer) Close() {
+	fmt.Println("开始关闭连接")
 	for _, serverClient := range this.mapClient {
 		serverClient.Close()
 	}
 
+	this.waiClient.Wait()
+
 	this.listener.Close()
+
+	this.chaClose <- true
+
+	fmt.Println("连接关闭完成")
 }
 
 func (this *PServer) Read() chan *PMessageServer { return this.chaWaitRead }
 
 func (this *PServer) onPServerClientClose(key string) {
-	fmt.Printf("客户端[%v]断开连接", key)
+	fmt.Printf("客户端[%v]断开连接\n", key)
 	delete(this.mapClient, key)
 }
 

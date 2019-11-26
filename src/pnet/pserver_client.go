@@ -6,14 +6,20 @@ import (
 	"io"
 	"net"
 	"os"
+	"sync"
 )
 
 type PServerClient struct {
 	conn         net.Conn
 	chaWaitRead  chan *PMessageServer
 	chaWaitWrite chan *PMessage
-	chaClose     chan bool
-	funOnClose   func(string)
+
+	// 关闭相关处理(这里写的好复杂-_-||)
+	chaClose   chan bool
+	funOnClose func(string)
+	waiClient  *sync.WaitGroup
+	mutClose   sync.Mutex
+	isClosing  bool
 }
 
 func newPServerClient(server *PServer, conn net.Conn) *PServerClient {
@@ -23,6 +29,8 @@ func newPServerClient(server *PServer, conn net.Conn) *PServerClient {
 		chaWaitWrite: make(chan *PMessage, kPServerClientWaitSendLen),
 		chaClose:     make(chan bool, 1),
 		funOnClose:   server.onPServerClientClose,
+		waiClient:    server.waiClient,
+		isClosing:    false,
 	}
 }
 
@@ -34,10 +42,18 @@ func (this *PServerClient) Send(cmd uint32, msg proto.Message) {
 }
 
 func (this *PServerClient) Close() {
+	this.mutClose.Lock()
+	defer this.mutClose.Unlock()
+
+	if this.isClosing {
+		return
+	}
+	this.isClosing = true
 	this.chaClose <- true
 }
 
 func (this *PServerClient) start() {
+	this.waiClient.Add(2)
 	go this.loopRead()
 	go this.loopSend()
 }
@@ -47,6 +63,7 @@ func (this *PServerClient) getClientAddr() string {
 }
 
 func (this *PServerClient) loopRead() {
+	defer this.waiClient.Done()
 	head := make([]byte, kPMessageHeadLen, kPMessageHeadLen)
 	for {
 		_, err := io.ReadFull(this.conn, head)
@@ -80,6 +97,7 @@ func (this *PServerClient) loopRead() {
 }
 
 func (this *PServerClient) loopSend() {
+	defer this.waiClient.Done()
 	for {
 		select {
 		case msg := <-this.chaWaitWrite:

@@ -12,13 +12,14 @@ var (
 func main() {
 	fmt.Println("开始")
 
-	if err := gClient.Start(); err != nil {
+	chaClose := make(chan bool, 1)
+	if err := gClient.Start(chaClose); err != nil {
 		fmt.Println("dail出错了:%v", err)
 		return
 	}
 	defer gClient.Close()
 
-	loop()
+	loop(chaClose)
 
 	fmt.Println("结束")
 }

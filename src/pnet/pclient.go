@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"sync"
 )
 
 type PClient struct {
@@ -13,9 +14,14 @@ type PClient struct {
 	remotePort uint32
 
 	conn        net.Conn
-	chaClose    chan bool
 	chaWaitSend chan *PMessage
 	chaWaitRead chan *PMessage
+
+	// 关闭用
+	mutClose     sync.Mutex
+	isClosing    bool
+	chaClose     chan bool
+	chaCloseMain chan bool
 }
 
 func NewPClient(ip string, port uint32) *PClient {
@@ -29,10 +35,19 @@ func NewPClient(ip string, port uint32) *PClient {
 }
 
 func (this *PClient) Close() {
+	this.mutClose.Lock()
+	defer this.mutClose.Unlock()
+
+	if this.isClosing {
+		return
+	}
+	this.isClosing = true
+
 	this.chaClose <- true
 }
 
-func (this *PClient) Start() error {
+func (this *PClient) Start(chaClose chan bool) error {
+	this.chaCloseMain = chaClose
 	if err := this.dail(); err != nil {
 		return err
 	}
@@ -112,6 +127,8 @@ func (this *PClient) loopSend() {
 func (this *PClient) close() {
 	close(this.chaClose)
 	this.conn.Close()
+	this.chaCloseMain <- true
+	fmt.Println("客户端连接断开了")
 }
 
 func (this *PClient) send(msg *PMessage) {

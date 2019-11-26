@@ -6,8 +6,9 @@ import (
 	"time"
 )
 
-func loop() {
+func loop(chaClose chan bool) {
 	ticker := time.NewTicker(time.Second)
+	//i := 0
 	for {
 		select {
 		case msg := <-gServer.Read():
@@ -22,7 +23,14 @@ func loop() {
 				Id:   998,
 				Data: "啦啦啦,123,abc",
 			})
+		case <-chaClose:
+			fmt.Println("程序结束")
+			return
 		case <-ticker.C:
+			//i++
+			//if i == 10 {
+			//	gServer.Close()
+			//}
 			//fmt.Println("定时器一跳")
 		}
 	}

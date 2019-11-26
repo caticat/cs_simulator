@@ -20,13 +20,14 @@ func main() {
 	//test()
 	//return
 
-	if err := gServer.Start(); err != nil {
+	chaClose := make(chan bool, 1)
+	if err := gServer.Start(chaClose); err != nil {
 		fmt.Println("启动服务器失败:", err)
 		return
 	}
 	defer gServer.Close()
 
-	loop()
+	loop(chaClose)
 
 	fmt.Println("服务器停止")
 }
